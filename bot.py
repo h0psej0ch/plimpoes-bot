@@ -13,7 +13,6 @@ import praw
 import urllib.request
 from dotenv import load_dotenv
 from datetime import timedelta
-from filelock import FileLock
 from discord.ui import Button, View
 from async_timeout import timeout
 from discord.ext import commands
@@ -25,22 +24,23 @@ yt_dlp.utils.bug_reports_message = lambda: ""
 load_dotenv("API.env")
 
 #plimpoes
-#token = os.getenv("PLIMPOES")
+token = os.getenv("PLIMPOES")
 
 #testbot
-token = os.getenv('TESTBOT')
+# token = os.getenv('TESTBOT')
+
 canvastoken = os.getenv('CANVAS')
 
 print(token)
 print(canvastoken)
-#Testing fakedata
-assUrlList = ['wowwieee its a link']
+# Testing fakedata
+# assUrlList = ['wowwieee its a link']
 
 # Actual data
-# assUrlList = [
-#     'https://canvas.utwente.nl/api/v1/courses/14218/assignments?access_token=',
-#     'https://canvas.utwente.nl/api/v1/courses/14555/assignments?access_token='
-# ]
+assUrlList = [
+    'https://canvas.utwente.nl/api/v1/courses/14218/assignments?access_token=',
+    'https://canvas.utwente.nl/api/v1/courses/14555/assignments?access_token='
+]
 weekMessage = False
 
 reddit = praw.Reddit(
@@ -63,9 +63,6 @@ assignment_json = 'data.json'
 
 with open(assignment_json, 'r') as f:
     assData = json.load(f)
-
-# format: [[(AssignmentName, AssignmentDueDate), (AssignmentName, AssignmentDueDate), ...], [(24hour, 1hour), (24hour, 1hour), ...]]
-assignmentlist = [[], []]
 
 plimpoesEmbed = discord.Embed(title="plimpoes", colour=0x7F684F)
 plimpoesEmbed.set_image(
@@ -709,10 +706,10 @@ async def on_ready():
     global role
 
     # Actual server
-    #guild = bot.get_guild(1175750255808094220)
+    guild = bot.get_guild(1175750255808094220)
 
     # Test server
-    guild = bot.get_guild(1072906075373834250)
+    # guild = bot.get_guild(1072906075373834250)
 
     
     await bot.add_cog(Music(bot))
@@ -744,92 +741,79 @@ async def assignmentcheck():
     currentday = datetime.datetime.now() + timedelta(hours=1)
     for url in assUrlList:
 
-        # response = urllib.request.urlopen(url + canvastoken)
-        # data = response.read().decode("utf-8", "ignore")
-        # data = json.loads(data)
+        response = urllib.request.urlopen(url + canvastoken)
+        data = response.read().decode("utf-8", "ignore")
+        data = json.loads(data)
 
         courseresponse = urllib.request.urlopen(' https://canvas.utwente.nl/api/v1/courses' + '?access_token=' + canvastoken)
         coursedata = courseresponse.read().decode("utf-8", "ignore")
         coursedata = json.loads(coursedata)
 
-        with open('course.json', 'w') as f:
-            json.dump(coursedata, f)
-            f.flush()
-            os.fsync(f.fileno())
+        edited = False
 
-        with open('fakedata.json', 'r') as fake:
-            data = json.load(fake)
+        for i in data:
+            due = i["due_at"]
+            assname = i["name"]
+            hurl = i["html_url"]
 
-            edited = False
+            if due is not None:
+                date, time = due.split("T")
+                time = time[:-1]
+                date = date.split("-")
+                time = time.split(":")
+                assignmentdaytime = datetime.datetime(
+                    int(date[0]),
+                    int(date[1]),
+                    int(date[2]),
+                    (int(time[0]) + 1) % 24,
+                    int(time[1]),
+                    int(time[2]),
+                )
 
-            with open("yes.json", "w") as f:
-                json.dump(data, f)
-                f.flush()
-                os.fsync(f.fileno())
+                for course in coursedata:
+                    if course["id"] == i["course_id"]:
+                        courseName = course["name"]
+                        break
 
-            for i in data:
-                due = i["due_at"]
-                assname = i["name"]
-                hurl = i["html_url"]
+                try:
+                    for channel in assData["data"]:
+                        print(channel)
+                        chan = bot.get_channel(int(channel))
+                        print("Now doing " + str(chan.name))
+                        if currentday <= assignmentdaytime:
+                            if assname not in assData["data"][channel]: # The assignment is new and is to be added
+                                await assignmentSend(chan, assname, assignmentdaytime, hurl, 0, courseName)
+                                
+                            elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - currentday).days == 0
+                            and "1hour" not in assData["data"][channel][assname]): # Assignment is due in 24 hours
+                                await assignmentSend(chan, assname, assignmentdaytime, hurl, 1, courseName)
 
-                if due is not None:
-                    date, time = due.split("T")
-                    time = time[:-1]
-                    date = date.split("-")
-                    time = time.split(":")
-                    assignmentdaytime = datetime.datetime(
-                        int(date[0]),
-                        int(date[1]),
-                        int(date[2]),
-                        (int(time[0]) + 1) % 24,
-                        int(time[1]),
-                        int(time[2]),
-                    )
+                            elif ("1hour" not in assData["data"][channel][assname]
+                            and (assignmentdaytime - currentday).days == 0
+                            and (assignmentdaytime - currentday).seconds < 3600): # Assignment is due in 1 hour
+                                await assignmentSend(chan, assname, assignmentdaytime, hurl, 2, courseName)
 
-                    for course in coursedata:
-                        if course["id"] == i["course_id"]:
-                            courseName = course["name"]
-                            break
+                        elif assname in assData["data"][channel]: # Assignment is overdue but still in the list huh?
+                            print("Assignment overdue")
+                            try:
+                                for timeslot, message in assData["data"][channel][assname].items():
+                                    message = await chan.fetch_message(message)
+                                    await message.delete()
+                            except:
+                                print("An error occurred while deleting the message")
+                            print(assData["data"][channel][assname])
+                            assData["data"][channel].pop(assname)
+                            edited = True
 
-                    try:
-                        for channel in assData["data"]:
-                            print(channel)
-                            chan = bot.get_channel(int(channel))
-                            print("Now doing " + str(chan.name))
-                            if currentday <= assignmentdaytime:
-                                if assname not in assData["data"][channel]: # The assignment is new and is to be added
-                                    await assignmentSend(chan, assname, assignmentdaytime, hurl, 0, courseName)
-                                    
-                                elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - currentday).days == 0
-                                and "1hour" not in assData["data"][channel][assname]): # Assignment is due in 24 hours
-                                    await assignmentSend(chan, assname, assignmentdaytime, hurl, 1, courseName)
+                    if edited:
+                        print("Saving the data")
+                        with open(assignment_json, 'w') as f:
+                            json.dump(assData, f)
+                            f.flush()
+                            os.fsync(f.fileno())
 
-                                elif ("1hour" not in assData["data"][channel][assname]
-                                and (assignmentdaytime - currentday).days == 0
-                                and (assignmentdaytime - currentday).seconds < 3600): # Assignment is due in 1 hour
-                                    await assignmentSend(chan, assname, assignmentdaytime, hurl, 2, courseName)
-
-                            elif assname in assData["data"][channel]: # Assignment is overdue but still in the list huh?
-                                print("Assignment overdue")
-                                try:
-                                    for timeslot, message in assData["data"][channel][assname].items():
-                                        message = await chan.fetch_message(message)
-                                        await message.delete()
-                                except:
-                                    print("An error occurred while deleting the message")
-                                print(assData["data"][channel][assname])
-                                assData["data"][channel].pop(assname)
-                                edited = True
-
-                        if edited:
-                            print("Saving the data")
-                            with open(assignment_json, 'w') as f:
-                                json.dump(assData, f)
-                                f.flush()
-                                os.fsync(f.fileno())
-
-                    except Exception as e:
-                        print(f"An error occurred: {e}, {assname}")
+                except Exception as e:
+                    print(f"An error occurred: {e}, {assname}")
                         
 async def assignmentSend(chan, assname, assignmentdaytime, hurl, index, coursename):
     global role
@@ -876,10 +860,7 @@ async def on_message(message):
                 chan = bot.get_channel(message.channel.id)
                 await chan.purge()
                 await chan.send(embed=plimpoesEmbed)
-                print("The whole list: " + str(assignmentlist))
-                for assignment in assignmentlist[0]:
-                    assData["data"][message.channel.id][assignment[0].strip()] = {"initial": None, "24hour": None, "1hour": None}
-                    #TODO add the sending of the messages
+                #TODO add the sending of the messages
             else:
                 chan = bot.get_channel(message.channel.id)
                 print("purging")
