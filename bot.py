@@ -11,6 +11,7 @@ import discord
 import yt_dlp
 import praw
 import urllib.request
+from pytz import timezone
 from dotenv import load_dotenv
 from datetime import timedelta
 from discord.ui import Button, View
@@ -739,9 +740,12 @@ async def assignmentcheck():
     print("Checking assignments")
 
     currentday = datetime.datetime.now() + timedelta(hours=1)
-    utctime = datetime.datetime.utcnow()
-    hoursdelta = int((currentday - utctime).total_seconds()) // 3600
+    timezonedate = datetime.datetime.now().astimezone(timezone("Europe/Amsterdam")).replace(tzinfo=None)
+    utctime = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    hoursdelta = math.ceil((timezonedate - utctime).total_seconds()) // 3600
+    print("UTC time: " + str(utctime))
     print("Hours delta: " + str(hoursdelta))
+    print("Europe time: " + str(timezonedate))
     print("Huidige tijd:" + str(currentday))
     for url in assUrlList:
 
@@ -782,18 +786,18 @@ async def assignmentcheck():
                 try:
                     for channel in assData["data"]:
                         chan = bot.get_channel(int(channel))
-                        if currentday <= assignmentdaytime:
+                        if timezonedate <= assignmentdaytime:
                             if assname not in assData["data"][channel]: # The assignment is new and is to be added
                                 print(due)
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 0, courseName)
                                 
-                            elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - currentday).days == 0
+                            elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - timezonedate).days == 0
                             and "1hour" not in assData["data"][channel][assname]): # Assignment is due in 24 hours
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 1, courseName)
 
                             elif ("1hour" not in assData["data"][channel][assname]
-                            and (assignmentdaytime - currentday).days == 0
-                            and (assignmentdaytime - currentday).seconds < 3600): # Assignment is due in 1 hour
+                            and (assignmentdaytime - timezonedate).days == 0
+                            and (assignmentdaytime - timezonedate).seconds < 3600): # Assignment is due in 1 hour
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 2, courseName)
 
                         elif assname in assData["data"][channel]: # Assignment is overdue but still in the list huh?
