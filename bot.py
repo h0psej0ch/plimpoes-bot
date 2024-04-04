@@ -739,6 +739,10 @@ async def assignmentcheck():
     print("Checking assignments")
 
     currentday = datetime.datetime.now() + timedelta(hours=1)
+    utctime = datetime.datetime.utcnow()
+    hoursdelta = int((currentday - utctime).total_seconds()) // 3600
+    print("Hours delta: " + str(hoursdelta))
+    print("Huidige tijd:" + str(currentday))
     for url in assUrlList:
 
         response = urllib.request.urlopen(url + canvastoken)
@@ -765,7 +769,7 @@ async def assignmentcheck():
                     int(date[0]),
                     int(date[1]),
                     int(date[2]),
-                    (int(time[0]) + 1) % 24,
+                    (int(time[0]) + hoursdelta) % 24,
                     int(time[1]),
                     int(time[2]),
                 )
@@ -777,11 +781,10 @@ async def assignmentcheck():
 
                 try:
                     for channel in assData["data"]:
-                        print(channel)
                         chan = bot.get_channel(int(channel))
-                        print("Now doing " + str(chan.name))
                         if currentday <= assignmentdaytime:
                             if assname not in assData["data"][channel]: # The assignment is new and is to be added
+                                print(due)
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 0, courseName)
                                 
                             elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - currentday).days == 0
@@ -835,6 +838,9 @@ async def assignmentSend(chan, assname, assignmentdaytime, hurl, index, coursena
     assignmentembed.add_field(name="Assignment name", value=assname)
     assignmentembed.add_field(name="Due date", value=assignmentdaytime)
     assignmentembed.add_field(name="Course", value=coursename)
+
+    print(assignmentdaytime)
+
     await chan.send(embed=assignmentembed)
 
 
