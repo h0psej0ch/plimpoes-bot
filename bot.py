@@ -25,10 +25,10 @@ yt_dlp.utils.bug_reports_message = lambda: ""
 load_dotenv("API.env")
 
 #plimpoes
-token = os.getenv("PLIMPOES")
+# token = os.getenv("PLIMPOES")
 
 #testbot
-# token = os.getenv('TESTBOT')
+token = os.getenv('TESTBOT')
 
 canvastoken = os.getenv('CANVAS')
 
@@ -707,10 +707,10 @@ async def on_ready():
     global role
 
     # Actual server
-    guild = bot.get_guild(1175750255808094220)
+    # guild = bot.get_guild(1175750255808094220)
 
     # Test server
-    # guild = bot.get_guild(1072906075373834250)
+    guild = bot.get_guild(1072906075373834250)
 
     
     await bot.add_cog(Music(bot))
@@ -763,7 +763,8 @@ async def assignmentcheck():
             due = i["due_at"]
             assname = i["name"]
             hurl = i["html_url"]
-
+            id = i["id"]
+            print(id)
             if due is not None:
                 date, time = due.split("T")
                 time = time[:-1]
@@ -787,29 +788,32 @@ async def assignmentcheck():
                     for channel in assData["data"]:
                         chan = bot.get_channel(int(channel))
                         if timezonedate <= assignmentdaytime:
-                            if assname not in assData["data"][channel]: # The assignment is new and is to be added
+                            print("hasnt passed yet")
+                            if str(id) not in assData["data"][channel]: # The assignment is new and is to be added
                                 print(due)
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 0, courseName)
                                 
-                            elif ("24hour" not in assData["data"][channel][assname] and (assignmentdaytime - timezonedate).days == 0
-                            and "1hour" not in assData["data"][channel][assname]): # Assignment is due in 24 hours
+                            elif ("24hour" not in assData["data"][channel][str(id)] and (assignmentdaytime - timezonedate).days == 0
+                            and "1hour" not in assData["data"][channel][str(id)]): # Assignment is due in 24 hours
+                                print("Assignment due in 24 hours")
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 1, courseName)
 
-                            elif ("1hour" not in assData["data"][channel][assname]
+                            elif ("1hour" not in assData["data"][channel][str(id)]
                             and (assignmentdaytime - timezonedate).days == 0
                             and (assignmentdaytime - timezonedate).seconds < 3600): # Assignment is due in 1 hour
+                                print("Assignment due in 1 hour")
                                 await assignmentSend(chan, assname, assignmentdaytime, hurl, 2, courseName)
 
-                        elif assname in assData["data"][channel]: # Assignment is overdue but still in the list huh?
+                        elif str(id) in assData["data"][channel]: # Assignment is overdue but still in the list huh?
                             print("Assignment overdue")
                             try:
-                                for timeslot, message in assData["data"][channel][assname].items():
+                                for timeslot, message in assData["data"][channel][str(id)].items():
                                     message = await chan.fetch_message(message)
                                     await message.delete()
                             except:
                                 print("An error occurred while deleting the message")
-                            print(assData["data"][channel][assname])
-                            assData["data"][channel].pop(assname)
+                            print(assData["data"][channel][str(id)])
+                            assData["data"][channel].pop(str(id))
                             edited = True
 
                     if edited:
@@ -906,20 +910,20 @@ async def on_message(message):
             print(message.embeds[0].fields[0].value)
             match message.embeds[0].title:
                 case "New assignment created!" | "Current assignment!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()] = {}
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()]["initial"] = message.id
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]] = {}
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"] = message.id
                     print("New assignment created")
                 case "Assignment due in 24 hours!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()]["24hour"] = message.id
-                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()]["initial"])
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"] = message.id
+                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"])
                     await delete_message.delete()
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()].pop("initial")
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("initial")
                     print("24 hours left")
                 case "Assignment due in 1 hour!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()]["1hour"] = message.id
-                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()]["24hour"])
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["1hour"] = message.id
+                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"])
                     await delete_message.delete()
-                    assData["data"][str(message.channel.id)][message.embeds[0].fields[0].value.strip()].pop("24hour")
+                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("24hour")
                     print("1 hour left")
             print("New bot message: " + str(message.embeds))
 
