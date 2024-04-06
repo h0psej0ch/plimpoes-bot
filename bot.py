@@ -19,6 +19,8 @@ from async_timeout import timeout
 from discord.ext import commands
 from discord.ext import tasks
 
+from music_cog import music_cog
+
 # Silence useless bug reports messages
 yt_dlp.utils.bug_reports_message = lambda: ""
 
@@ -70,8 +72,33 @@ plimpoesEmbed.set_image(
     url="https://media.discordapp.net/stickers/1062405909910933565.webp?size=160"
 )
 
+musicQueue = []
+
+YTDL_OPTIONS = {
+    "format": "bestaudio/best",
+    "extractaudio": True,
+    "audioformat": "mp3",
+    "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
+    "restrictfilenames": True,
+    "noplaylist": True,
+    "nocheckcertificate": True,
+    "ignoreerrors": False,
+    "logtostderr": False,
+    "quiet": True,
+    "no_warnings": True,
+    "default_search": "auto",
+    "source_address": "0.0.0.0",
+}
+
+FFMPEG_OPTIONS = {
+    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+    "options": "-vn",
+}
+
+ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
+
 commandlist = [
-    "join",
+    "joinpwease",
     "leave",
     "loop",
     "now",
@@ -713,7 +740,8 @@ async def on_ready():
     guild = bot.get_guild(1072906075373834250)
 
     
-    await bot.add_cog(Music(bot))
+    # await bot.add_cog(Music(bot))
+    await bot.add_cog(music_cog(bot))
     try:
         synced = await bot.tree.sync()
         print("succeed " + str(len(synced)))
@@ -901,31 +929,26 @@ async def on_message(message):
                 message.content = "play " + str(message.content)
                 await bot.process_commands(message)
 
-    elif message.author == bot.user:
-        print("FOUND A BOT MESSAGE AAAAAAAAAA")   
-        print(message.channel.id)
-        print(assData)
-        print("\n")
-        if str(message.channel.id) in assData["data"]:
-            print(message.embeds[0].fields[0].value)
-            match message.embeds[0].title:
-                case "New assignment created!" | "Current assignment!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]] = {}
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"] = message.id
-                    print("New assignment created")
-                case "Assignment due in 24 hours!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"] = message.id
-                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"])
-                    await delete_message.delete()
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("initial")
-                    print("24 hours left")
-                case "Assignment due in 1 hour!":
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["1hour"] = message.id
-                    delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"])
-                    await delete_message.delete()
-                    assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("24hour")
-                    print("1 hour left")
-            print("New bot message: " + str(message.embeds))
+    elif (message.author == bot.user and str(message.channel.id) in assData["data"]):
+        print(message.embeds[0].fields[0].value)
+        match message.embeds[0].title:
+            case "New assignment created!" | "Current assignment!":
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]] = {}
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"] = message.id
+                print("New assignment created")
+            case "Assignment due in 24 hours!":
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"] = message.id
+                delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["initial"])
+                await delete_message.delete()
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("initial")
+                print("24 hours left")
+            case "Assignment due in 1 hour!":
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["1hour"] = message.id
+                delete_message = await message.channel.fetch_message(assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]]["24hour"])
+                await delete_message.delete()
+                assData["data"][str(message.channel.id)][message.embeds[0].url.split("/")[-1]].pop("24hour")
+                print("1 hour left")
+        print("New bot message: " + str(message.embeds))
 
         with open(assignment_json, "w") as f:
             json.dump(assData, f)
