@@ -72,47 +72,6 @@ plimpoesEmbed.set_image(
     url="https://media.discordapp.net/stickers/1062405909910933565.webp?size=160"
 )
 
-musicQueue = []
-
-YTDL_OPTIONS = {
-    "format": "bestaudio/best",
-    "extractaudio": True,
-    "audioformat": "mp3",
-    "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
-    "restrictfilenames": True,
-    "noplaylist": True,
-    "nocheckcertificate": True,
-    "ignoreerrors": False,
-    "logtostderr": False,
-    "quiet": True,
-    "no_warnings": True,
-    "default_search": "auto",
-    "source_address": "0.0.0.0",
-}
-
-FFMPEG_OPTIONS = {
-    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn",
-}
-
-ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
-
-commandlist = [
-    "joinpwease",
-    "leave",
-    "loop",
-    "now",
-    "pause",
-    "play",
-    "queue",
-    "remove",
-    "resume",
-    "skip",
-    "stop",
-    "summon",
-    "volume",
-]
-
 
 class VoiceError(Exception):
     pass
@@ -895,6 +854,19 @@ async def on_message(message):
             chan = bot.get_channel(musicpoesid)
             await chan.purge()
             await chan.send(embed=plimpoesEmbed)
+
+            musicEmbed = discord.Embed(
+                title = ":dvd: Currently inactive :dvd:",
+                url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                colour = 0x7F684F
+            )
+            musicEmbed.set_thumbnail(url="https://i.ytimg.com/vi/gG_dA32oH44/maxresdefault.jpg")
+            musicEmbed.add_field(name="Artist", value = "Rick Astley")
+            musicEmbed.add_field(name="Length", value = "3:33")
+            musicEmbed.add_field(name="Queue Length", value = "5")
+
+            await chan.send(embed=musicEmbed)
+
             return
         elif "this assignment channel" in message.content:
             if str(message.channel.id) not in assData["data"]:
@@ -916,19 +888,9 @@ async def on_message(message):
 
         if str(message.channel) == "plimpoes-appreciation-channel":
             await message.channel.send(embed=plimpoesEmbed)
-        elif message.channel.id in musicpoesidlist:
-            musicpoesid = message.channel.id
-            chan = bot.get_channel(musicpoesid)
-            await chan.purge(limit=1)
-            found = False
-            for command in commandlist:
-                if command in message.content:
-                    await bot.process_commands(message)
-                    found = True
-            if found == False:
-                message.content = "play " + str(message.content)
-                await bot.process_commands(message)
-
+        else:
+            message.content = "MUSIC " + message.content
+            await bot.process_commands(message)
     elif (message.author == bot.user and str(message.channel.id) in assData["data"]):
         print(message.embeds[0].fields[0].value)
         match message.embeds[0].title:

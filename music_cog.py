@@ -13,6 +13,8 @@ class music_cog(commands.Cog):
         self.playing = False
         self.vc = None
 
+        self.invisible_char = " "
+
         self.YTDL_OPTIONS = {
             "format": "bestaudio/best",
             "extractaudio": True,
@@ -36,25 +38,48 @@ class music_cog(commands.Cog):
 
         self.ytdl = yt_dlp.YoutubeDL(self.YTDL_OPTIONS)
 
+        self.commandlist = [
+            "join",
+            "leave",
+            "loop",
+            "now",
+            "pause",
+            "play",
+            "queue",
+            "remove",
+            "resume",
+            "skip",
+            "stop",
+            "summon",
+            "volume",
+            "setup",
+        ]
+
         print(f"Bot instance in MyCog: {self.bot}")
 
-    @commands.command(name="joinpwease", description="Joins the voice channel")
-    async def joinpwease(self, ctx):
+    @commands.command(name="join", description="Joins the voice channel")
+    async def join(self, ctx):
         if (ctx.author.voice):
             channel = ctx.author.voice.channel
             self.vc = await channel.connect()
-            self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source="hema.mp3"))
+            self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source="hema.mp3", options = self.FFMPEG_OPTIONS))
 
-    def turntable(self, ctx):
+    async def turntable(self, ctx):
         song = self.musicQueue.pop(0)
-        self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source=song), after=lambda e: self.nextSong(ctx))
+        self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source=song[0], options=self.FFMPEG_OPTIONS), after=lambda e: self.nextSong(ctx))
+        self.musicEmbed.set_field_at(0, name="Artist", value = song[2])
+        self.musicEmbed.set_field_at(1, name="Length", value = song[3])
+        self.musicEmbed.set_field_at(2, name="Queue Length", value = str(len(self.musicQueue)))
+        self.musicEmbed.url = song[0]
+        self.musicEmbed.title = ":dvd: " + song[1] + " :dvd:"
+        await self.player.edit(embed=self.musicEmbed)
 
-    def nextSong(self, ctx):
+    async def nextSong(self, ctx):
         if self.musicQueue != []:
             self.playing = True
-            self.turntable(ctx)
+            await self.turntable(ctx)
         else: 
-            self.vc.disconnect()
+            await self.vc.disconnect()
             self.vc = None
             self.playing = False
     
@@ -64,17 +89,64 @@ class music_cog(commands.Cog):
             json.dump(info, f)
             f.flush()
             os.fsync(f.fileno())
-        return info["entries"][0]["url"]
+        return [info["entries"][0]["url"], info["entries"][0]["title"], info["entries"][0]["uploader"], info["entries"][0]["duration"]]
 
     @commands.command(name = "play", description = "Plays a song")
     async def play(self, ctx, *args):
+        if ctx.author.voice == None:
+            await ctx.send(content = "You must be in a voice channel to use this command")
+            return
         if self.vc == None or self.vc.channel != ctx.author.voice.channel:
             self.vc = await ctx.author.voice.channel.connect()
         argsString = " ".join(args)
         print(argsString)
         await ctx.send(content = "play " + argsString)
         self.musicQueue.append(self.getUrl(argsString))
+        print(self.playing)
         if not self.playing:
-            self.turntable(ctx)
+            await self.turntable(ctx)
 
+    @commands.command(name = "skip", description = "Skips the current song")
+    async def skip(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Skipped", ephemeral=True, delete_after=5)
+
+    @commands.command(name="setup", description="Sets up the channel")
+    async def setup(self, ctx):
+        self.musicpoesid = ctx.channel.id
+        await ctx.channel.purge()
+        #await ctx.send(embed=plimpoesEmbed)
+
+        self.musicEmbed = discord.Embed(
+            title = ":dvd: Currently inactive :dvd:",
+            url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            colour = 0x7F684F
+        )
+        self.musicEmbed.set_thumbnail(url="https://i.ytimg.com/vi/gG_dA32oH44/maxresdefault.jpg")
+        self.musicEmbed.add_field(name="Artist", value = "-")
+        self.musicEmbed.add_field(name="Length", value = "-")
+        self.musicEmbed.add_field(name="Queue Length", value = "0")
+
+        skipButton = Button(style=discord.ButtonStyle.primary, label=">>")
+        skipButton.callback = self.skip
+        view = View()
+        view.add_item(skipButton)
+
+        self.player = await ctx.send(embed=self.musicEmbed, view=view)
+
+    @commands.command(name="MUSIC", description="processes music commands")
+    async def music(self, ctx):
+        if ctx.message.content.startswith("MUSIC setup"):
+            await self.setup(ctx)
+        
+        elif ctx.channel.id == self.musicpoesid:
+            if ctx.message.content.split(" ")[1] in self.commandlist:
+                ctx.message.content = ctx.message.content.replace("MUSIC ", "")
+                print(ctx.message.content)
+                await self.bot.process_commands(ctx.message)
+            else:
+                ctx.message.content = ctx.message.content.replace("MUSIC", "play")
+                print(ctx.message.content)
+                await self.bot.process_commands(ctx.message)
+            
+    
     
