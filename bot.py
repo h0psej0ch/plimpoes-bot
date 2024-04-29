@@ -62,10 +62,11 @@ pingid = 1185599761173188682
 musicpoesidlist = []
 assignmentpoesidlist = []
 
-assignment_json = 'data.json'
-
-with open(assignment_json, 'r') as f:
+with open('data.json', 'r') as f:
     assData = json.load(f)
+
+with open('quote.json', 'r') as f:
+    quoteData = json.load(f)
 
 plimpoesEmbed = discord.Embed(title="plimpoes", colour=0x7F684F)
 plimpoesEmbed.set_image(
@@ -886,11 +887,20 @@ async def on_message(message):
                 f.flush()
                 os.fsync(f.fileno())
 
-        if str(message.channel) == "plimpoes-appreciation-channel":
-            await message.channel.send(embed=plimpoesEmbed)
+        elif "this quote channel" in message.content:
+            quoteData[message.guild.id] = message.channel.id
+            with open('quote.json', 'w') as f:
+                json.dump(quoteData, f)
+                f.flush()
+                os.fsync(f.fileno())
+            await message.channel.send("This channel is now the quote channel")
+            print(quoteData)
         else:
             message.content = "MUSIC " + message.content
             await bot.process_commands(message)
+        
+        if str(message.channel) == "plimpoes-appreciation-channel":
+            await message.channel.send(embed=plimpoesEmbed)
     elif (message.author == bot.user and str(message.channel.id) in assData["data"]):
         print(message.embeds[0].fields[0].value)
         match message.embeds[0].title:
@@ -932,6 +942,15 @@ async def plimpoes(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=plimprateEmbed)
 
+@bot.tree.command(
+    name="quote", description="Insert a new quote"
+)
+async def quote(interaction: discord.Interaction, person: str, quote: str):
+    if (quoteData[str(interaction.guild_id)] != None):
+        await bot.get_channel(quoteData[str(interaction.guild_id)]).send(content=person + "~" + quote, allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
+        await interaction.response.send_message(content="Succesfully send to quote channel", ephemeral=True)
+    else:
+        await interaction.response.send_message("A quote channel has not been selected yet", ephemeral=True)
 
 @bot.tree.command(name="foodporn", description="Gib foodporn")
 async def foodporn(interaction: discord.Interaction):

@@ -1,2 +1,5 @@
 # ignore all the .env files for sensitive information
 *.env
+info.json
+data.json
+/__pycache__/*

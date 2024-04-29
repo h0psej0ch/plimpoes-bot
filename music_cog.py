@@ -3,6 +3,8 @@ from discord.ext import commands
 from discord.ext import tasks
 from discord.ui import Button, View
 import json
+import asyncio
+import datetime
 import os
 import yt_dlp
 
@@ -12,6 +14,7 @@ class music_cog(commands.Cog):
         self.musicQueue = []
         self.playing = False
         self.vc = None
+        self.start = datetime.datetime.now()
 
         self.invisible_char = " "
 
@@ -66,7 +69,12 @@ class music_cog(commands.Cog):
 
     async def turntable(self, ctx):
         song = self.musicQueue.pop(0)
-        self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source=song[0], options=self.FFMPEG_OPTIONS), after=lambda e: self.nextSong(ctx))
+        self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source=song[0], options=self.FFMPEG_OPTIONS), 
+                     after=lambda e: asyncio.run_coroutine_threadsafe(self.nextSong(ctx, e), self.bot.loop))
+        self.start = datetime.datetime.now()
+
+    async def editEmbed(self, ctx, song):
+        # Chaning the embed
         self.musicEmbed.set_field_at(0, name="Artist", value = song[2])
         self.musicEmbed.set_field_at(1, name="Length", value = song[3])
         self.musicEmbed.set_field_at(2, name="Queue Length", value = str(len(self.musicQueue)))
@@ -74,9 +82,17 @@ class music_cog(commands.Cog):
         self.musicEmbed.title = ":dvd: " + song[1] + " :dvd:"
         await self.player.edit(embed=self.musicEmbed)
 
-    async def nextSong(self, ctx):
+        return
+    
+    async def updateQueueEmbed(self, ctx):
+        self.musicEmbed.set_field_at(2, name="Queue Length", value = str(len(self.musicQueue)))
+        await self.player.edit(embed=self.musicEmbed)
+
+    async def nextSong(self, ctx, error = None):
+        print((datetime.datetime.now() - self.start).total_seconds())
         if self.musicQueue != []:
             self.playing = True
+            await self.editEmbed(ctx, self.musicQueue[0])
             await self.turntable(ctx)
         else: 
             await self.vc.disconnect()
@@ -102,9 +118,11 @@ class music_cog(commands.Cog):
         print(argsString)
         await ctx.send(content = "play " + argsString)
         self.musicQueue.append(self.getUrl(argsString))
+        await self.updateQueueEmbed(ctx)
         print(self.playing)
-        if not self.playing:
-            await self.turntable(ctx)
+        if self.playing == False:
+            print("Still doing this fuck you!")
+            await self.nextSong(ctx)
 
     @commands.command(name = "skip", description = "Skips the current song")
     async def skip(self, interaction: discord.Interaction):
