@@ -65,7 +65,7 @@ class music_cog(commands.Cog):
         if (ctx.author.voice):
             channel = ctx.author.voice.channel
             self.vc = await channel.connect()
-            self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source="hema.mp3", options = self.FFMPEG_OPTIONS))
+            self.vc.play(discord.FFmpegPCMAudio(source="hema.mp3", options = self.FFMPEG_OPTIONS))
 
     async def turntable(self, ctx):
         song = self.musicQueue.pop(0)

@@ -27,10 +27,10 @@ yt_dlp.utils.bug_reports_message = lambda: ""
 load_dotenv("API.env")
 
 #plimpoes
-# token = os.getenv("PLIMPOES")
+token = os.getenv("PLIMPOES")
 
 #testbot
-token = os.getenv('TESTBOT')
+# token = os.getenv('TESTBOT')
 
 canvastoken = os.getenv('CANVAS')
 
@@ -694,10 +694,10 @@ async def on_ready():
     global role
 
     # Actual server
-    # guild = bot.get_guild(1175750255808094220)
+    guild = bot.get_guild(1175750255808094220)
 
     # Test server
-    guild = bot.get_guild(1072906075373834250)
+    # guild = bot.get_guild(1072906075373834250)
 
     
     # await bot.add_cog(Music(bot))
