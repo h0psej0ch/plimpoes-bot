@@ -69,7 +69,7 @@ class music_cog(commands.Cog):
 
     async def turntable(self, ctx):
         song = self.musicQueue.pop(0)
-        self.vc.play(discord.FFmpegPCMAudio(executable="C:/Users/T Bot/Downloads/ffmpeg-7.0-full_build/bin/ffmpeg.exe", source=song[0], options=self.FFMPEG_OPTIONS), 
+        self.vc.play(discord.FFmpegPCMAudio(resource=song[0], options=self.FFMPEG_OPTIONS), 
                      after=lambda e: asyncio.run_coroutine_threadsafe(self.nextSong(ctx, e), self.bot.loop))
         self.start = datetime.datetime.now()
 
