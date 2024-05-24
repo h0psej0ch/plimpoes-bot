@@ -27,12 +27,14 @@ yt_dlp.utils.bug_reports_message = lambda: ""
 load_dotenv("API.env")
 
 #plimpoes
-token = os.getenv("PLIMPOES")
+# token = os.getenv("PLIMPOES")
 
 #testbot
-# token = os.getenv('TESTBOT')
+token = os.getenv('TESTBOT')
 
 canvastoken = os.getenv('CANVAS')
+
+quote_emoji = "🇱"
 
 print(token)
 print(canvastoken)
@@ -62,11 +64,25 @@ pingid = 1185599761173188682
 musicpoesidlist = []
 assignmentpoesidlist = []
 
+assignment_json = "data.json"
+
 with open('data.json', 'r') as f:
     assData = json.load(f)
 
+def updateData():
+    with open('data.json', 'w') as f:
+        json.dump(assData, f)
+        f.flush()
+        os.fsync(f.fileno())
+
 with open('quote.json', 'r') as f:
     quoteData = json.load(f)
+
+def updateQuote():
+    with open('quote.json', 'w') as f:
+        json.dump(quoteData, f)
+        f.flush()
+        os.fsync(f.fileno())
 
 plimpoesEmbed = discord.Embed(title="plimpoes", colour=0x7F684F)
 plimpoesEmbed.set_image(
@@ -694,10 +710,10 @@ async def on_ready():
     global role
 
     # Actual server
-    guild = bot.get_guild(1175750255808094220)
+    # guild = bot.get_guild(1175750255808094220)
 
     # Test server
-    # guild = bot.get_guild(1072906075373834250)
+    guild = bot.get_guild(1072906075373834250)
 
     
     # await bot.add_cog(Music(bot))
@@ -806,10 +822,7 @@ async def assignmentcheck():
 
                     if edited:
                         print("Saving the data")
-                        with open(assignment_json, 'w') as f:
-                            json.dump(assData, f)
-                            f.flush()
-                            os.fsync(f.fileno())
+                        updateData()
 
                 except Exception as e:
                     print(f"An error occurred: {e}, {assname}")
@@ -882,18 +895,18 @@ async def on_message(message):
                 await chan.purge()
                 return
             
-            with open(assignment_json, "w") as f:
-                json.dump(assData, f)
-                f.flush()
-                os.fsync(f.fileno())
+            updateData()
 
         elif "this quote channel" in message.content:
-            quoteData[message.guild.id] = message.channel.id
-            with open('quote.json', 'w') as f:
-                json.dump(quoteData, f)
-                f.flush()
-                os.fsync(f.fileno())
-            await message.channel.send("This channel is now the quote channel")
+            if str(message.guild.id) not in quoteData:
+                quoteData[str(message.guild.id)] = {}
+                quoteData[str(message.guild.id)]['channel'] = message.channel.id
+                quoteData[str(message.guild.id)]['quotes'] = {}
+                updateQuote()
+                await message.channel.purge()
+                await message.channel.send(embed=plimpoesEmbed)
+            else:
+                await message.channel.send("A quote channel has already been selected")
             print(quoteData)
         else:
             message.content = "MUSIC " + message.content
@@ -922,13 +935,69 @@ async def on_message(message):
                 print("1 hour left")
         print("New bot message: " + str(message.embeds))
 
-        with open(assignment_json, "w") as f:
-            json.dump(assData, f)
-            f.flush()
-            os.fsync(f.fileno())
+        updateData()
 
     return First
 
+# On reaction add, if it is the selected quote emoji, quote the message in the quote channel
+@bot.event
+async def on_raw_reaction_add(reaction):
+    print(reaction.emoji.name == quote_emoji)
+    message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
+    if message.author != bot.user and reaction.emoji.name == quote_emoji and message.channel.permissions_for(message.guild.default_role).send_messages == True:
+        user = message.author.id
+        if (str(message.id) not in quoteData[str(reaction.guild_id)]["quotes"]):
+            quoter = await bot.fetch_user(reaction.user_id)
+            quoteData[str(reaction.guild_id)]["quotes"][str(message.id)] = str((
+                await bot.get_channel(quoteData[str(reaction.guild_id)]["channel"]).send(embed=await embedQuote(message.content, message.author, quoter), allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
+                ).id)
+            updateQuote()
+
+# On reaction remove, if it is the selected quote emoji, delete the quote in the quote channel if none left afterwards
+@bot.event
+async def on_raw_reaction_remove(reaction):
+    print(reaction.emoji.name)
+    message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
+    if message.author != bot.user and reaction.emoji.name == quote_emoji and message.channel.permissions_for(message.guild.default_role).send_messages == True:
+        print(message.reactions)
+        if not (any(map(lambda reaction: reaction.emoji == quote_emoji, message.reactions))):
+            deleteMessage = await bot.get_channel(quoteData[str(reaction.guild_id)]["channel"]).fetch_message(quoteData[str(reaction.guild_id)]["quotes"][str(message.id)])
+            await deleteMessage.delete()
+            quoteData[str(reaction.guild_id)]["quotes"].pop(str(message.id))
+            updateQuote()
+
+# Generate an embed with a quote and all the neccesary information
+async def embedQuote(quote, person, quoter):
+    print(type(person))
+    if isinstance(person, discord.User):
+        quoteEmbed = discord.Embed(
+            description="<@" + str(person.id) + ">",
+            colour = 0x7F684F,
+            timestamp=datetime.datetime.now()
+        )
+        quoteEmbed.set_thumbnail(url=person.avatar.url)
+
+    else:
+        quoteEmbed = discord.Embed(
+            description=str(person),
+            colour = 0x7F684F,
+            timestamp=datetime.datetime.now()
+        )
+        try:
+            print(int(person[2:-1]))
+            user = await bot.fetch_user(int(person[2:-1]))
+            print("WTF???")
+            print(type(user))
+            print(user)
+            print(user.display_avatar.url)
+            quoteEmbed.set_thumbnail(url=user.display_avatar.url)
+        except:
+            print("No thumbnail found")
+
+    quoteEmbed.add_field(name=str(quote) + "\n", value="Originally quoted by: <@" + str(quoter.id) + ">", inline=True)
+    quoteEmbed.set_footer(text="-", icon_url=quoter.avatar.url)
+    print(type(person))
+    return quoteEmbed
 
 @bot.tree.command(
     name="plimpoes", description="Rates how much plimpoes you are :hot_face:"
@@ -942,15 +1011,17 @@ async def plimpoes(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=plimprateEmbed)
 
+# Quote a message in the quote channel
 @bot.tree.command(
     name="quote", description="Insert a new quote"
 )
 async def quote(interaction: discord.Interaction, person: str, quote: str):
     if (quoteData[str(interaction.guild_id)] != None):
-        await bot.get_channel(quoteData[str(interaction.guild_id)]).send(content=person + "~" + quote, allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
-        await interaction.response.send_message(content="Succesfully send to quote channel", ephemeral=True)
+        message = await bot.get_channel(quoteData[str(interaction.guild_id)]["channel"]).send(embed=await embedQuote(quote, person, interaction.user), allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
+        quoteData[str(interaction.guild_id)]["quotes"][str(message.id)] = str(message.id)
+        await interaction.response.send_message(content="Succesfully send to quote channel", ephemeral=True, delete_after=5)
     else:
-        await interaction.response.send_message("A quote channel has not been selected yet", ephemeral=True)
+        await interaction.response.send_message("A quote channel has not been selected yet", ephemeral=True, delete_after=5)
 
 @bot.tree.command(name="foodporn", description="Gib foodporn")
 async def foodporn(interaction: discord.Interaction):
