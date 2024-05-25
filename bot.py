@@ -34,8 +34,6 @@ token = os.getenv('TESTBOT')
 
 canvastoken = os.getenv('CANVAS')
 
-quote_emoji = "🇱"
-
 print(token)
 print(canvastoken)
 # Testing fakedata
@@ -897,11 +895,12 @@ async def on_message(message):
             
             updateData()
 
-        elif "this quote channel" in message.content:
+        elif "quoteSetup" in message.content:
             if str(message.guild.id) not in quoteData:
                 quoteData[str(message.guild.id)] = {}
                 quoteData[str(message.guild.id)]['channel'] = message.channel.id
                 quoteData[str(message.guild.id)]['quotes'] = {}
+                quoteData[str(message.guild.id)]['emoji'] = message.content.split(" ")[1]
                 updateQuote()
                 await message.channel.purge()
                 await message.channel.send(embed=plimpoesEmbed)
@@ -942,10 +941,8 @@ async def on_message(message):
 # On reaction add, if it is the selected quote emoji, quote the message in the quote channel
 @bot.event
 async def on_raw_reaction_add(reaction):
-    print(reaction.emoji.name == quote_emoji)
     message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
-    if message.author != bot.user and reaction.emoji.name == quote_emoji and message.channel.permissions_for(message.guild.default_role).send_messages == True:
-        user = message.author.id
+    if message.author != bot.user and reaction.emoji.name == quoteData[str(reaction.guild_id)]['emoji'] and message.channel.permissions_for(message.guild.default_role).send_messages == True:
         if (str(message.id) not in quoteData[str(reaction.guild_id)]["quotes"]):
             quoter = await bot.fetch_user(reaction.user_id)
             quoteData[str(reaction.guild_id)]["quotes"][str(message.id)] = str((
@@ -957,6 +954,7 @@ async def on_raw_reaction_add(reaction):
 @bot.event
 async def on_raw_reaction_remove(reaction):
     print(reaction.emoji.name)
+    quote_emoji = quoteData[str(reaction.guild_id)]['emoji']
     message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
     if message.author != bot.user and reaction.emoji.name == quote_emoji and message.channel.permissions_for(message.guild.default_role).send_messages == True:
         print(message.reactions)
