@@ -942,8 +942,10 @@ async def on_message(message):
 @bot.event
 async def on_raw_reaction_add(reaction):
     message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
-    if message.author != bot.user and reaction.emoji.name == quoteData[str(reaction.guild_id)]['emoji'] and message.channel.permissions_for(message.guild.default_role).send_messages == True:
-        if (str(message.id) not in quoteData[str(reaction.guild_id)]["quotes"]):
+    if (message.author != bot.user 
+        and str(reaction.emoji) == quoteData[str(reaction.guild_id)]["emoji"] 
+        and message.channel.permissions_for(message.guild.default_role).send_messages == True 
+        and (str(message.id) not in quoteData[str(reaction.guild_id)]["quotes"])):
             quoter = await bot.fetch_user(reaction.user_id)
             quoteData[str(reaction.guild_id)]["quotes"][str(message.id)] = str((
                 await bot.get_channel(quoteData[str(reaction.guild_id)]["channel"]).send(embed=await embedQuote(message.content, message.author, quoter), allowed_mentions=discord.AllowedMentions(roles=False, users=False, everyone=False))
@@ -953,10 +955,9 @@ async def on_raw_reaction_add(reaction):
 # On reaction remove, if it is the selected quote emoji, delete the quote in the quote channel if none left afterwards
 @bot.event
 async def on_raw_reaction_remove(reaction):
-    print(reaction.emoji.name)
-    quote_emoji = quoteData[str(reaction.guild_id)]['emoji']
+    quote_emoji = quoteData[str(reaction.guild_id)]["emoji"]
     message = await bot.get_channel(reaction.channel_id).fetch_message(reaction.message_id)
-    if message.author != bot.user and reaction.emoji.name == quote_emoji and message.channel.permissions_for(message.guild.default_role).send_messages == True:
+    if message.author != bot.user and str(reaction.emoji == quote_emoji) and message.channel.permissions_for(message.guild.default_role).send_messages == True:
         print(message.reactions)
         if not (any(map(lambda reaction: reaction.emoji == quote_emoji, message.reactions))):
             deleteMessage = await bot.get_channel(quoteData[str(reaction.guild_id)]["channel"]).fetch_message(quoteData[str(reaction.guild_id)]["quotes"][str(message.id)])
