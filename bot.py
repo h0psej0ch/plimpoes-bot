@@ -637,6 +637,9 @@ async def leaveReminders(interaction: discord.Interaction):
         await interaction.response.send_message("Succesfully left the reminders", ephemeral=True, delete_after=5)
 
         await bot.get_channel(int(assData[str(str(guild))]["courses"][courseID]["channel"])).set_permissions(interaction.user, view_channel=False)
+
+        if assData[str(guild)]["courses"][courseID]["participants"] == []:
+            await removeAssCourse(guild, courseID)
     except:
         await interaction.response.send_message("You are not in the list of participants", ephemeral=True, delete_after=5)
 
@@ -648,6 +651,10 @@ def getCanvasData(course, APIKey, isCourse):
     response = urllib.request.urlopen(request + '?access_token=' + APIKey)
     data = response.read().decode("utf-8", "ignore")
     data = json.loads(data)
+
+    if not isCourse:
+        with open('fakedata.json', 'r') as f:
+            data = json.load(f)
 
     return data
 
@@ -663,5 +670,22 @@ async def createAssChannel(guild, name, user):
         await channel.set_permissions(guild.default_role, view_channel=False, send_messages=False)
 
     return channel.id
+
+# Method for removing a course when necessary
+async def removeAssCourse(guildID, courseID):
+    # Delete the channel
+    channel = assData[str(guildID)]["courses"][str(courseID)]["channel"]
+    channel = bot.get_channel(int(channel))
+    await channel.delete()
+
+    # Delete the course message
+    assChannel = bot.get_channel(int(assData[str(guildID)]["channel"]))
+    message = assData[str(guildID)]["courses"][str(courseID)]["joinMessage"]
+    message = await assChannel.fetch_message(int(message))
+    await message.delete()
+
+    # Remove the course data from the json data
+    assData[str(guildID)]["courses"].pop(str(courseID))
+    updateData()  
 
 bot.run(token)
