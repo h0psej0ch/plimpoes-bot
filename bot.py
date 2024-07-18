@@ -557,7 +557,7 @@ async def addAPIKey(interaction: discord.Interaction, apikey: str):
 
 # Command for adding a new course for reminders
 @bot.tree.command(name="assignment-add", description="Adds a new course")
-async def addCourse(interaction: discord.Interaction, courseid: str, apikey: str, enddate: str):
+async def addCourse(interaction: discord.Interaction, courseid: str, enddate: str):
     guild = interaction.guild
     guildid = guild.id
     userID = str(interaction.user.id)
@@ -566,18 +566,18 @@ async def addCourse(interaction: discord.Interaction, courseid: str, apikey: str
         endDate_datetime = datetime.datetime.strptime(enddate, "%Y-%m-%d")
     except ValueError:
         await interaction.response.send_message("Invalid date format, please use YYYY-MM-DD", ephemeral=True, delete_after=5)
+        return
 
     getEnv = os.getenv(userID)
     if getEnv == None:
-        set_key(dotenvFile, userID, apikey)
-        load_dotenv(dotenvFile)
-    else:
-        apikey = os.getenv(userID)
+        await interaction.response.send_message("No API key found, please add an API key first using `/add-key <key>`", ephemeral=True, delete_after=5)
+        return
+    apikey = os.getenv(userID)
 
     try:
         data = getCanvasData(courseid, apikey, True)
     except:
-        await interaction.response.send_message("Invalid course ID or API key", ephemeral=True, delete_after=5)
+        await interaction.response.send_message("Invalid course ID", ephemeral=True, delete_after=5)
         return
 
     newChannel = await createAssChannel(guild, data["name"], interaction.user)
@@ -589,6 +589,7 @@ async def addCourse(interaction: discord.Interaction, courseid: str, apikey: str
 
     joinMessage = await bot.get_channel(int(assData[str(guildid)]["channel"])).send(embed=assignmentEmbed(data["name"], endDate_datetime, interaction.user, courseid), view=assignmentView())
     assData[str(guildid)]["courses"][courseid]["joinMessage"] = joinMessage.id
+    updateData()
 
 # Create an embed for a newly added course with assignments
 def assignmentEmbed(course, endDate, user, courseID):
