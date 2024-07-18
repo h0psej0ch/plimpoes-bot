@@ -534,9 +534,26 @@ async def setupAssignments(interaction: discord.Interaction):
     await channel.send(embed=plimpoesEmbed)
 
 @bot.tree.command(name="add-key", description="Adds a new API key to your profile ~~securly~~")
-async def addAPIKey(interaction: discord.Interaction):
-    # TODO
-    interaction.response.send_message("Removed the assignment channel", ephemeral=True, delete_after=5)
+async def addAPIKey(interaction: discord.Interaction, apikey: str):
+    userID = str(interaction.user.id)
+
+    requestUrl = canvas + '?access_token=' + apikey
+    try:
+        response = urllib.request.urlopen(requestUrl)
+        print(response)
+        data = response.read().decode("utf-8", "ignore")
+        print(data)
+        data = json.loads(data)
+        print(data)
+    except Exception as e:
+        print(e)
+        await interaction.response.send_message("Invalid API key", ephemeral=True, delete_after=5)
+        return
+
+    set_key(dotenvFile, userID, apikey)
+    load_dotenv(dotenvFile)
+
+    await interaction.response.send_message("woohoo", ephemeral=True, delete_after=5)
 
 # Command for adding a new course for reminders
 @bot.tree.command(name="assignment-add", description="Adds a new course")
